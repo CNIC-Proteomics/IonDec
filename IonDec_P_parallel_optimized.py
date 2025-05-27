@@ -204,10 +204,20 @@ def IonDec_processing(exp):
         })
         
         # Eliminar duplicados. 
-        mass_int_ch1 = mass_int_ch1.drop_duplicates().reset_index(drop = True)
+        # mass_int_ch1 = mass_int_ch1.drop_duplicates().reset_index(drop = True)
         
         
+        # Filtro según las ventanas de masa para carga 2. 
+        mass_int_pepmass1 = mass_int_ch1[
+            (mass_int_ch1.iloc[:, 0] > float(mquery) * 2 - swath) &
+            (mass_int_ch1.iloc[:, 0] < float(mquery) * 2 + swath)
+        ]
+
+        # Elimina filas duplicadas. 
+        mass_int_pepmass1 = mass_int_pepmass1.drop_duplicates().reset_index(drop = True)
         
+
+
         
         ####----- Preparación de la matriz de sumas y restas, e intensidades (CARGA +2) -----####
         
@@ -252,28 +262,25 @@ def IonDec_processing(exp):
         })
         
         # Elimina duplicados. 
-        mass_int_ch2 = mass_int_ch2.drop_duplicates().reset_index(drop = True)
+        # mass_int_ch2 = mass_int_ch2.drop_duplicates().reset_index(drop = True)
         
-        # Une los df con las masas e intensidades de ambas cargas. 
-        mass_int = pd.concat([mass_int_ch1, mass_int_ch2], ignore_index = True)
-        
-        # Elimina filas duplicadas. ###---(Ralentiza si el df es grande)---###
-        mass_int = mass_int.drop_duplicates().reset_index(drop = True)
-        
-        # Filtro según las ventanas de masa para carga 2. 
-        mass_int_pepmass1 = mass_int[
-            (mass_int.iloc[:, 0] > float(mquery) * 2 - swath) &
-            (mass_int.iloc[:, 0] < float(mquery) * 2 + swath)
-        ]
-        
+
         # Filtro según las ventanas de masa para carga 3. 
-        mass_int_pepmass2 = mass_int[
-            (mass_int.iloc[:, 0] > float(mquery) * 3 - swath) &
-            (mass_int.iloc[:, 0] < float(mquery) * 3 + swath)
+        mass_int_pepmass2 = mass_int_ch2[
+            (mass_int_ch2.iloc[:, 0] > float(mquery) * 3 - swath) &
+            (mass_int_ch2.iloc[:, 0] < float(mquery) * 3 + swath)
         ]
+
+        # Elimina filas duplicadas. 
+        mass_int_pepmass2 = mass_int_pepmass2.drop_duplicates().reset_index(drop = True)
         
+
+
         # Unión de ambas ventanas. 
         mass_int = pd.concat([mass_int_pepmass1, mass_int_pepmass2], ignore_index = True)
+
+        # Elimina filas duplicadas. ###---(Ralentiza si el df es grande)---###
+        # mass_int = mass_int.drop_duplicates().reset_index(drop = True)
         
         # Filtra filas con diferencia de masa mayor que 0. 
         mass_int = mass_int[mass_int.iloc[:, 2] > 0]
@@ -489,8 +496,8 @@ def IonDec_processing(exp):
                     # Filtramos las filas que no están en los precursores ya identificados
                     s_prec_mat = s_prec_mat[~s_prec_mat["mass_sum"].isin(n_pos_prec)]
                     
-                    # Filtramos las que tengan al menos 5 elementos en el grupo. 
-                    s_prec_mat = s_prec_mat[s_prec_mat["count"] >= 5]
+                    # Filtramos las que tengan al menos 7 elementos en el grupo. 
+                    s_prec_mat = s_prec_mat[s_prec_mat["count"] >= 7]
                     
                     # Nuevos posibles candidatos. 
                     if not s_prec_mat.empty:
