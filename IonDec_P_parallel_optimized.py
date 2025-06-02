@@ -22,6 +22,7 @@ import os
 from tqdm import tqdm
 import logging
 import sys
+import math
 
 
 
@@ -41,7 +42,7 @@ def IonDec_processing(exp):
     n_pepmass = []
     n_mz = []
     
-    swath = 12
+    swath = 24
 
     # Extraer información del scan de interés.
     number_scan = exp.SCANS
@@ -57,10 +58,6 @@ def IonDec_processing(exp):
 
     ########## for x in (index_rawfile[1,index_tabla]:index_rawfile[2,index_tabla]):
     
-    
-    # Copia del original. 
-    # fr_original = fr.copy()
-    
     # Separación de columnas. 
     fr_mass = fr.iloc[:,0]
     fr_int = fr.iloc[:,1]
@@ -75,7 +72,7 @@ def IonDec_processing(exp):
     fr_ch2 = fr_tmp.copy()
     
     
-    # Filtrado por masas carga 1.              # [FILA][COLUMNA]           # .iloc[FILA, COLUMNA]      # En R es [FILA, COLUMNA]
+    # Filtrado por masas carga 1. 
     df_ch1 = fr_ch1.copy()
     df_ch1.columns = ["pos", "val","intens"]
     
@@ -110,7 +107,7 @@ def IonDec_processing(exp):
     
     
     
-    # Filtrado por masas carga 2.               # [FILA][COLUMNA]           # .iloc[FILA, COLUMNA]      # En R es [FILA, COLUMNA]
+    # Filtrado por masas carga 2. 
     df_ch2 = fr_ch2.copy()
     df_ch2.columns = ["pos", "val","intens"]
     
@@ -202,9 +199,7 @@ def IonDec_processing(exp):
             'diff_mass': rev_diff_matrix_long['value']
         })
         
-        # Eliminar duplicados. 
-        # mass_int_ch1 = mass_int_ch1.drop_duplicates().reset_index(drop = True)
-        
+
         
         # Filtro según las ventanas de masa para carga 2. 
         mass_int_pepmass1 = mass_int_ch1[
@@ -221,9 +216,9 @@ def IonDec_processing(exp):
         ####----- Preparación de la matriz de sumas y restas, e intensidades (CARGA +2) -----####
         
         # Matriz de suma de masas carga 3. 
-        fmass_ch2 = np.tile(mass_ch2, (len(mass_ch1), 1))                                   # CARGA 2. [COLUMNA CON EL MISMO VALOR]
-        tfmass_ch2 = np.tile(mass_ch1.reshape(-1, 1), (1, len(mass_ch2)))                   # CARGA 1. [FILAS CON EL MISMO VALOR]
-        sum_matrix_ch2 = np.abs(fmass_ch2 * 2 + tfmass_ch2 - 1.0078 * 2)                    # [FILAS: CARGA 1 - COLUMNAS: CARGA 2]
+        fmass_ch2 = np.tile(mass_ch2, (len(mass_ch1), 1))
+        tfmass_ch2 = np.tile(mass_ch1.reshape(-1, 1), (1, len(mass_ch2)))
+        sum_matrix_ch2 = np.abs(fmass_ch2 * 2 + tfmass_ch2 - 1.0078 * 2)
         
         # Matriz de diferencia de masas. 
         diff_matrix_ch2 = np.abs(fmass_ch2 - tfmass_ch2)
@@ -260,9 +255,7 @@ def IonDec_processing(exp):
             'diff_mass': rev_diff_matrix['value']
         })
         
-        # Elimina duplicados. 
-        # mass_int_ch2 = mass_int_ch2.drop_duplicates().reset_index(drop = True)
-        
+
 
         # Filtro según las ventanas de masa para carga 3. 
         mass_int_pepmass2 = mass_int_ch2[
@@ -278,8 +271,6 @@ def IonDec_processing(exp):
         # Unión de ambas ventanas. 
         mass_int = pd.concat([mass_int_pepmass1, mass_int_pepmass2], ignore_index = True)
 
-        # Elimina filas duplicadas. ###---(Ralentiza si el df es grande)---###
-        # mass_int = mass_int.drop_duplicates().reset_index(drop = True)
         
         # Filtra filas con diferencia de masa mayor que 0. 
         mass_int = mass_int[mass_int.iloc[:, 2] > 0]
@@ -360,9 +351,6 @@ def IonDec_processing(exp):
                     red_mass_int.at[e, "rel_int"] = rel_int_gr
                     red_mass_int.at[e, "factor"] = rel_int_gr * 1
             
-            # Renombra columnas. 
-            # tabla_int_count = red_mass_int.copy()
-            
             # Ordena de nuevo por la suma de masas en orden creciente. 
             red_mass_int_m2 = red_mass_int.sort_values(by = "mass_sum", ascending = True).reset_index(drop = True)
             
@@ -408,7 +396,7 @@ def IonDec_processing(exp):
                     tmp_vector = []
                     
                     # Si hay al menos una coincidencia. 
-                    if np.sum(red_sum_mass.iloc[j,:]) != 0:             # [FILA][COLUMNA]           # .iloc[FILA, COLUMNA]      # En R es [FILA, COLUMNA]
+                    if np.sum(red_sum_mass.iloc[j,:]) != 0:
                         pos_prec = j
                         tmp_row = np.where(red_sum_mass.iloc[:,pos_prec] != 0)[0]
                         
@@ -501,7 +489,6 @@ def IonDec_processing(exp):
                     # Nuevos posibles candidatos. 
                     if not s_prec_mat.empty:
                         for t in range(len(s_prec_mat)):
-                            # new_id = len(lista_prec) + t
                             lista_prec.append([s_prec_mat.iloc[t]["mass_sum"]])
                     
                     # Limpieza. 
@@ -555,7 +542,7 @@ def IonDec_processing(exp):
                         if len(all_frags) > 0:
                             mass_int_4 = np.column_stack((all_frags, all_int))
                     
-                            # Búsqueda Y1
+                            # Búsqueda y1. 
                             ref_val = mass_int_4[-1, 0] if mass_int_4.shape[0] > 1 else prec_mass - 200
                         else:
                             ref_val = prec_mass - 200
@@ -632,8 +619,8 @@ def main(args):
     # Cargar el archivo mzML.
     logging.info("Reading mzML file...")
     exp = pyopenms.MSExperiment()
-    file_name = "4march025_JAC_library_DIA_all"
-    infile = "C:/Users/mvcalcism/Desktop/DatosCrudos/" + file_name + ".mzML"
+    file_name = "FE_x01439"
+    infile = "C:/Users/mvcalcism/Desktop/TFM_P/Resultados_fosfoproteoma/" + file_name + ".mzML"
     
     # file_name = "Aortas_Marfan_TMT4_FR5"
     # infile = r"S:\U_Proteomica\LABS\LAB_JMR\Marfan\2024_EC_EN_DM_Tissue-cohorts\2024_DM_Human-Aortas_data\mzML\mzML\\" + file_name + ".mzML"
@@ -659,24 +646,22 @@ def main(args):
     tquery.CHARGE = tquery.CHARGE.astype(int)
     
     
-    # Inicializar listas.
-    all_scans, all_charges, all_rt, all_pepmass, all_mz = [], [], [], [], []
-    
-    
     # Paralelizar. 
     indices, rowSeries = zip(*tquery.iterrows())
     rowSeries = list(rowSeries)
     tqdm.pandas(position = 0, leave = True)
-
+    chunks = 100
+    if len(tquery) <= chunks:
+        chunks = math.ceil(len(tquery)/args.n_workers)
+    logging.info("\tBatch size: " + str(chunks) + " (" + str(math.ceil(len(tquery)/chunks)) + " batches)")
     logging.info("Processing...")
-    
-    
     with concurrent.futures.ProcessPoolExecutor(max_workers = args.n_workers) as executor:
-        tasks = [executor.submit(IonDec_processing, row) for row in rowSeries]
-        result = [t.result() for t in tqdm(concurrent.futures.as_completed(tasks), total = len(tasks))]
+        result = list(tqdm(executor.map(IonDec_processing, rowSeries, chunksize = chunks), total = len(rowSeries)))
 
 
 
+    # Inicializar listas.
+    all_scans, all_charges, all_rt, all_pepmass, all_mz = [], [], [], [], []
 
     # Combinar los resultados de cada scan.
     for res in result:
@@ -687,8 +672,7 @@ def main(args):
         all_pepmass.extend(pepmass)
         all_mz.extend(mz)
 
-    
-    # GUARDAR EL ARCHIVO MZML. 
+
     logging.info("Creating corrected mzML file...")
     new_exp = MSExperiment()
     
@@ -717,14 +701,14 @@ def main(args):
         # Número de scan. 
         spectrum.setNativeID(f"scan={val_scan}")
     
-        # Añadir el espectro al nuevo experimento
+        # Añadir el espectro al nuevo experimento. 
         new_exp.addSpectrum(spectrum)
     
     
     
-    # Guardar el nuevo archivo mzML
+    # Guardar el nuevo archivo mzML. 
     logging.info("Saving corrected mzML file...")
-    outfile = "C:/Users/mvcalcism/Desktop/TFM_P/" + file_name + "_IDed_opt_paral.mzML"
+    outfile = "C:/Users/mvcalcism/Desktop/TFM_P/Resultados_fosfoproteoma/Resultados/" + file_name + "_IDed.mzML"
     MzMLFile().store(outfile, new_exp)
 
 
